@@ -1,3 +1,5 @@
+// import * as vscode from 'vscode';
+
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
@@ -9,6 +11,12 @@ const vscode = require('vscode');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
+
+	const DecorationType = vscode.window.createTextEditorDecorationType({
+		gutterIconPath:'C:\vscode_work\vscode_ext\bookmark-code\icons\bookmark-filled-disabled.svg'
+		// overviewRulerColor,
+		// overviewerRulerLane,
+	})
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
@@ -23,6 +31,20 @@ function activate(context) {
 		// Display a message box to the user
 		vscode.window.showInformationMessage('Hello World from bookmark_code!');
 	});
+
+	let activeEditor = vscode.window.activeTextEditor;
+
+	function updateDecorations(){
+		if(!activeEditor){
+			return;
+		}
+		activeEditor.setDecorations(DecorationType)
+		// updateDecorationsInActiveEditor(
+		// 	bookmarkDecorationType
+		// );
+	}
+
+	updateDecorations();
 
 	context.subscriptions.push(disposable);
 }
