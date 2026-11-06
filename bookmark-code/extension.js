@@ -11,26 +11,26 @@ const vscode = require('vscode');
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-
-	const DecorationType = vscode.window.createTextEditorDecorationType({
-		gutterIconPath:'C:\vscode_work\vscode_ext\bookmark-code\icons\bookmark-filled-disabled.svg'
-		// overviewRulerColor,
-		// overviewerRulerLane,
-	})
-
+	
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "bookmark-code" is now active!');
-
+	
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with  registerCommand
 	// The commandId parameter must match the command field in package.json
 	const disposable = vscode.commands.registerCommand('bookmark-code.helloWorld', function () {
 		// The code you place here will be executed every time your command is executed
-
+		
 		// Display a message box to the user
 		vscode.window.showInformationMessage('Hello World from bookmark_code!');
 	});
+	
+	const DecorationType = vscode.window.createTextEditorDecorationType({
+		gutterIconPath:'C:\/vscode_work\/vscode_ext\/bookmark-code\/icons\/bookmark-filled-disabled.svg'
+		// overviewRulerColor,
+		// overviewerRulerLane,
+	})
 
 	let activeEditor = vscode.window.activeTextEditor;
 
@@ -38,7 +38,10 @@ function activate(context) {
 		if(!activeEditor){
 			return;
 		}
-		activeEditor.setDecorations(DecorationType)
+		const decorationRanges = [
+			new vscode.Range(0,0,0,0)
+		];
+		activeEditor.setDecorations(DecorationType, decorationRanges)
 		// updateDecorationsInActiveEditor(
 		// 	bookmarkDecorationType
 		// );
@@ -46,7 +49,7 @@ function activate(context) {
 
 	updateDecorations();
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(disposable, DecorationType);
 }
 
 // This method is called when your extension is deactivated
