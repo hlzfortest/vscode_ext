@@ -3,6 +3,7 @@
   "displayName": "bookmark_code",
   "description": "コード行をブックマークする",
   "version": "0.0.1",
+  "type": "module",
   "engines": {
     "vscode": "^1.140.0"
   },
