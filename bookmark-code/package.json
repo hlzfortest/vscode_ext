@@ -15,10 +15,30 @@
   ],
   "main": "./extension.js",
   "contributes": {
-    "commands": [{
-      "command": "bookmark-code.helloWorld",
-      "title": "Hello World"
-    }]
+    "commands": [
+      {
+        "command": "bookmarks.add",
+        "title": "Add Bookmark"
+      },
+      {
+        "command": "bookmarks.remove", 
+        "title": "Remove Bookmark"
+      }
+    ],
+    "menus": {
+      "editor/lineNumber/context": [
+        {
+          "command": "bookmarks.add",
+          "when": "editorLineNumber not in bookmarks.lines",
+          "group": "inline"
+        },
+        {
+          "command": "bookmarks.remove",
+          "when": "editorLineNumber in bookmarks.lines",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "lint": "eslint .",

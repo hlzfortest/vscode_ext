@@ -36,7 +36,7 @@ export function activate(context) {
 			vscode.window.showErrorMessage('No active editor');
 			return;
 		}
-		const lineNumber = context?.lineNumber ? context.lineNumber - 1 : editor.selection.active.line;
+		const lineNumber = context.lineNumber ? context.lineNumber - 1 : editor.selection.active.line;
 		const fileKey = editor.document.uri.toString();
 		const fileBookmarks = bookmarkProvider.getBookmarks(fileKey) || [];
 		const existingBookmark = fileBookmarks.find(b => b.line === lineNumber);
@@ -141,6 +141,10 @@ class BookmarkProvider{
             });
 			editor.setDecorations(this.bookmarkDecoration, decorationRanges);
 		});
+	}
+
+	getBookmarks(fileKey){
+    	return this.bookmarks.get(fileKey);
 	}
 
 	addBookmark(fileUri, line, label){
