@@ -21,28 +21,74 @@ export function activate(context) {
 	
 	bookmarkProvider.loadBookmarks();
 
-	// const DecorationType = vscode.window.createTextEditorDecorationType({
-	// 	gutterIconPath:'C:\/vscode_work\/vscode_ext\/bookmark-code\/icons\/bookmark-filled-disabled.svg'
-	// })
+    vscode.window.onDidChangeActiveTextEditor(() => {
+        bookmarkProvider.updateDecorations();
+        bookmarkProvider.updateBookmarkContext();
+    });
 
-	let activeEditor = vscode.window.activeTextEditor;
+    vscode.window.onDidChangeTextEditorSelection(() => {
+        bookmarkProvider.updateBookmarkContext(); // Add this
+    });
 
-	function updateDecorations(){
-		if(!activeEditor){
+	const addBookmarkCommand = vscode.commands.registerCommand('bookmarks.add', async (context) => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No active editor');
 			return;
 		}
-		const decorationRanges = [
-			new vscode.Range(0,0,0,0)
-		];
-		activeEditor.setDecorations(DecorationType, decorationRanges)
-		// updateDecorationsInActiveEditor(
-		// 	bookmarkDecorationType
-		// );
-	}
+		const lineNumber = context?.lineNumber ? context.lineNumber - 1 : editor.selection.active.line;
+		const fileKey = editor.document.uri.toString();
+		const fileBookmarks = bookmarkProvider.getBookmarks(fileKey) || [];
+		const existingBookmark = fileBookmarks.find(b => b.line === lineNumber);
+		if (existingBookmark) {
+			vscode.window.showInformationMessage('Bookmark already exists at this line');
+			return;
+		}
+		bookmarkProvider.addBookmark(editor.document.uri, lineNumber);
+        bookmarkProvider.updateContextForClickedLine(lineNumber, editor.document.uri);
+		vscode.window.showInformationMessage('Bookmark added');
+	});
 
-	updateDecorations();
+	const removeBookmarkCommand = vscode.commands.registerCommand('bookmarks.remove', async (context) => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No active editor');
+			return;
+		}
+		const lineNumber = context.lineNumber ? context.lineNumber - 1 : editor.selection.active.line;
+		const wasRemoved = bookmarkProvider.removeBookmark(editor.document.uri, lineNumber);
+        bookmarkProvider.updateContextForClickedLine(lineNumber, editor.document.uri);
+		if (wasRemoved) {
+			vscode.window.showInformationMessage('Bookmark removed');
+		} else {
+			vscode.window.showInformationMessage('No bookmark found at this line');
+		}
+	});
 
-	context.subscriptions.push(disposable, DecorationType);
+    // const editLabelCommand = vscode.commands.registerCommand('bookmarks.editLabel', async (bookmarkItem) => {
+    //     if (!bookmarkItem || bookmarkItem.type !== 'bookmark') {
+    //         return;
+    //     }
+    //     const fileKey = bookmarkItem.fileUri.toString();
+    //     const fileBookmarks = bookmarkProvider.getBookmarks(fileKey) || [];
+    //     const bookmark = fileBookmarks.find(b => b.line === bookmarkItem.line);
+    //     if (!bookmark) {
+    //         return;
+    //     }
+    //     const newLabel = await vscode.window.showInputBox({
+    //         prompt: 'Enter bookmark label',
+    //         value: bookmark.label || '',
+    //         placeHolder: 'Optional label for this bookmark'
+    //     });
+    //     if (newLabel === undefined) {
+    //         return;
+    //     }
+    //     bookmarkProvider.updateBookmarkLabel(bookmarkItem.fileUri, bookmarkItem.line, newLabel || undefined);
+    //     vscode.window.showInformationMessage('Bookmark label updated');
+    // });
+
+	// context.subscriptions.push(addBookmarkCommand, removeBookmarkCommand, editLabelCommand);
+	context.subscriptions.push(addBookmarkCommand, removeBookmarkCommand);
 }
 
 class BookmarkProvider{
@@ -63,10 +109,10 @@ class BookmarkProvider{
     }
     updateBookmarkContext(){
         const editor = vscode.window.activeTextEditor;
-        // if (!editor) {
-        //     vscode.commands.executeCommand('setContext', 'bookmarks.hasBookmarkAtCurrentLine', false);
-        //     return;
-        // }
+        if (!editor) {
+            vscode.commands.executeCommand('setContext', 'bookmarks.hasBookmarkAtCurrentLine', false);
+            return;
+        }
         const fileKey = editor.document.uri.toString();
         const fileBookmarks = this.bookmarks.get(fileKey) || [];
         const currentLine = editor.selection.active.line; // 0-based cursor position
@@ -79,12 +125,145 @@ class BookmarkProvider{
     // }
 
     loadBookmarks(){
-        const stored = this.context.workspaceState.get<{[key: string]: Bookmark[]}>('bookmarks', {});
+        const stored = this.context.workspaceState.get('bookmarks', {});
         this.bookmarks = new Map(Object.entries(stored));
-        this.refresh();
+        // this.refresh();
 		this.updateDecorations();
         this.updateBookmarkContext();
     }
+
+	updateDecorations(){
+		vscode.window.visibleTextEditors.forEach(editor => {
+			const fileKey = editor.document.uri.toString();
+			const fileBookmarks = this.bookmarks.get(fileKey) || [];
+			const decorationRanges = fileBookmarks.map(bookmark => {
+                return new vscode.Range(bookmark.line, 0, bookmark.line, 0);	//開始行、開始列、終了行、終了列
+            });
+			editor.setDecorations(this.bookmarkDecoration, decorationRanges);
+		});
+	}
+
+	addBookmark(fileUri, line, label){
+		const fileKey = fileUri.toString();
+		const fileBookmarks = this.bookmarks.get(fileKey) || [];
+		const newBookmark = { line, label };
+		fileBookmarks.push(newBookmark);
+		fileBookmarks.sort((a, b) => a.line - b.line);
+		this.bookmarks.set(fileKey, fileBookmarks);
+		this.saveBookmarks();
+		// this.refresh();
+		this.updateDecorations();
+        this.updateBookmarkContext();
+	}
+
+	removeBookmark(fileUri, line){
+		const fileKey = fileUri.toString();
+		const fileBookmarks = this.bookmarks.get(fileKey) || [];
+		const existingIndex = fileBookmarks.findIndex(b => b.line === line);
+		if (existingIndex >= 0) {
+			fileBookmarks.splice(existingIndex, 1);
+			if (fileBookmarks.length === 0) {
+				this.bookmarks.delete(fileKey);
+			} else {
+				this.bookmarks.set(fileKey, fileBookmarks);
+			}
+			this.saveBookmarks();
+			// this.refresh();
+			this.updateDecorations();
+            this.updateBookmarkContext();
+			return true;
+		}
+		return false;
+	}
+
+    async saveBookmarks(){
+        const bookmarksObject = Object.fromEntries(this.bookmarks);
+        await this.context.workspaceState.update('bookmarks', bookmarksObject);
+    }
+
+    updateContextForClickedLine(lineNumber, fileUri){
+        const fileKey = fileUri.toString();
+        const fileBookmarks = this.bookmarks.get(fileKey) || [];
+        const hasBookmark = fileBookmarks.some(b => b.line === lineNumber);
+        vscode.commands.executeCommand('setContext', 'bookmarks.hasBookmarkAtCurrentLine', hasBookmark);
+    }
+
+    // updateBookmarkLabel(fileUri: vscode.Uri, line: number, newLabel?: string): void {
+    //     const fileKey = fileUri.toString();
+    //     const fileBookmarks = this.bookmarks.get(fileKey) || [];
+        
+    //     const bookmark = fileBookmarks.find(b => b.line === line);
+    //     if (bookmark) {
+    //         bookmark.label = newLabel;
+    //         this.bookmarks.set(fileKey, fileBookmarks);
+    //         this.saveBookmarks();
+    //         this.refresh();
+    //     }
+    // }
+
+    // getTreeItem(element: BookmarkItem): vscode.TreeItem {
+    //     if (element.type === 'file') {
+    //         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
+    //         item.iconPath = vscode.ThemeIcon.File;
+    //         return item;
+    //     } else {
+    //         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    //         item.iconPath = new vscode.ThemeIcon('bookmark');
+            
+    //         item.command = {
+    //             command: 'vscode.open',
+    //             title: 'Go to Bookmark',
+    //             arguments: [
+    //                 element.fileUri,
+    //                 { selection: new vscode.Range(element.line!, 0, element.line!, 0) }
+    //             ]
+    //         };
+            
+    //         item.contextValue = 'bookmark';
+    //         return item;
+    //     }
+    // }
+
+    // async getChildren(element?: BookmarkItem): Promise<BookmarkItem[]> {
+    //     if (!element) {
+    //         const fileItems: BookmarkItem[] = [];
+            
+    //         for (const [fileUriString, bookmarks] of this.bookmarks) {
+    //             if (bookmarks.length > 0) {
+    //                 const fileUri = vscode.Uri.parse(fileUriString);
+    //                 const fileName = fileUri.path.split('/').pop() || fileUriString;
+                    
+    //                 fileItems.push({
+    //                     type: 'file',
+    //                     label: fileName,
+    //                     fileUri: fileUri,
+    //                     bookmarks: bookmarks
+    //                 });
+    //             }
+    //         }
+            
+    //         return fileItems;
+    //     } else if (element.type === 'file') {
+    //         const bookmarkItems: BookmarkItem[] = [];
+            
+    //         for (const bookmark of element.bookmarks || []) {
+    //             const label = bookmark.label 
+    //                 ? `Line ${bookmark.line + 1}: ${bookmark.label}`
+    //                 : `Line ${bookmark.line + 1}`;
+                
+    //             bookmarkItems.push({
+    //                 type: 'bookmark',
+    //                 label: label,
+    //                 fileUri: element.fileUri,
+    //                 line: bookmark.line
+    //             });
+    //         }
+            
+    //         return bookmarkItems;
+    //     }
+        
+    //     return [];
+    // }
 }
 
 // This method is called when your extension is deactivated
