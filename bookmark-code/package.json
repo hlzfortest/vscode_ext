@@ -15,6 +15,24 @@
   ],
   "main": "./extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bookmarks-container",
+          "title": "Bookmarks",
+          "icon": "$(bookmark)"
+        }
+      ]
+    },
+    "views": {
+      "bookmarks-container": [
+        {
+          "id": "bookmarksList",
+          "name": "Bookmarks",
+          "icon": "$(bookmark)"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "bookmarks.add",
@@ -23,6 +41,11 @@
       {
         "command": "bookmarks.remove", 
         "title": "Remove Bookmark"
+      },
+      {
+        "command": "bookmarks.editLabel",
+        "title": "Edit",
+        "icon": "$(edit)"
       }
     ],
     "menus": {
@@ -35,6 +58,13 @@
         {
           "command": "bookmarks.remove",
           "when": "editorLineNumber in bookmarks.lines",
+          "group": "inline"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "bookmarks.editLabel",
+          "when": "view == bookmarksList && viewItem == bookmark",
           "group": "inline"
         }
       ]

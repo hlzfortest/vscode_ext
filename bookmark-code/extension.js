@@ -1,23 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-
 export function activate(context) {
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with  registerCommand
-	// The commandId parameter must match the command field in package.json
-	// const disposable = vscode.commands.registerCommand('bookmark-code.helloWorld', function () {
-	// 	// The code you place here will be executed every time your command is executed
-		
-	// 	// Display a message box to the user
-	// 	vscode.window.showInformationMessage('Hello World from bookmark_code!');
-	// });
-
 	const bookmarkProvider = new BookmarkProvider(context);
 
-	// vscode.window.registerTreeDataProvider('bookmarksList', bookmarkProvider);
+	vscode.window.registerTreeDataProvider('bookmarksList', bookmarkProvider);
 	
 	bookmarkProvider.loadBookmarks();
 
@@ -92,8 +79,8 @@ export function activate(context) {
 }
 
 class BookmarkProvider{
-	// _onDidChangeTreeData= new vscode.EventEmitter();
-	// onDidChangeTreeData = this._onDidChangeTreeData.event;
+	_onDidChangeTreeData= new vscode.EventEmitter();
+	onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     bookmarks = new Map();
     context;
@@ -120,14 +107,14 @@ class BookmarkProvider{
         vscode.commands.executeCommand('setContext', 'bookmarks.lines', bookmarkedLines);
     }
 
-    // refresh(){
-    //     this._onDidChangeTreeData.fire();
-    // }
+    refresh(){
+        this._onDidChangeTreeData.fire();
+    }
 
     loadBookmarks(){
         const stored = this.context.workspaceState.get('bookmarks', {});
         this.bookmarks = new Map(Object.entries(stored));
-        // this.refresh();
+        this.refresh();
 		this.updateDecorations();
         this.updateBookmarkContext();
     }
@@ -155,7 +142,7 @@ class BookmarkProvider{
 		fileBookmarks.sort((a, b) => a.line - b.line);
 		this.bookmarks.set(fileKey, fileBookmarks);
 		this.saveBookmarks();
-		// this.refresh();
+		this.refresh();
 		this.updateDecorations();
         this.updateBookmarkContext();
 	}
@@ -172,7 +159,7 @@ class BookmarkProvider{
 				this.bookmarks.set(fileKey, fileBookmarks);
 			}
 			this.saveBookmarks();
-			// this.refresh();
+			this.refresh();
 			this.updateDecorations();
             this.updateBookmarkContext();
 			return true;
@@ -192,82 +179,72 @@ class BookmarkProvider{
         vscode.commands.executeCommand('setContext', 'bookmarks.hasBookmarkAtCurrentLine', hasBookmark);
     }
 
-    // updateBookmarkLabel(fileUri: vscode.Uri, line: number, newLabel?: string): void {
-    //     const fileKey = fileUri.toString();
-    //     const fileBookmarks = this.bookmarks.get(fileKey) || [];
-        
-    //     const bookmark = fileBookmarks.find(b => b.line === line);
-    //     if (bookmark) {
-    //         bookmark.label = newLabel;
-    //         this.bookmarks.set(fileKey, fileBookmarks);
-    //         this.saveBookmarks();
-    //         this.refresh();
-    //     }
-    // }
+    updateBookmarkLabel(fileUri, line, newLabel){
+        const fileKey = fileUri.toString();
+        const fileBookmarks = this.bookmarks.get(fileKey) || [];
+        const bookmark = fileBookmarks.find(b => b.line === line);
+        if (bookmark) {
+            bookmark.label = newLabel;
+            this.bookmarks.set(fileKey, fileBookmarks);
+            this.saveBookmarks();
+            this.refresh();
+        }
+    }
 
-    // getTreeItem(element: BookmarkItem): vscode.TreeItem {
-    //     if (element.type === 'file') {
-    //         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
-    //         item.iconPath = vscode.ThemeIcon.File;
-    //         return item;
-    //     } else {
-    //         const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
-    //         item.iconPath = new vscode.ThemeIcon('bookmark');
-            
-    //         item.command = {
-    //             command: 'vscode.open',
-    //             title: 'Go to Bookmark',
-    //             arguments: [
-    //                 element.fileUri,
-    //                 { selection: new vscode.Range(element.line!, 0, element.line!, 0) }
-    //             ]
-    //         };
-            
-    //         item.contextValue = 'bookmark';
-    //         return item;
-    //     }
-    // }
+    getTreeItem(element){
+        if (element.type === 'file') {
+            const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
+            item.iconPath = vscode.ThemeIcon.File;
+            return item;
+        } else {
+            const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+            item.iconPath = new vscode.ThemeIcon('bookmark');
+            item.command = {
+                command: 'vscode.open',
+                title: 'Go to Bookmark',
+                arguments: [
+                    element.fileUri,
+                    { selection: new vscode.Range(element.line, 0, element.line, 0) }
+                ]
+            };
+            item.contextValue = 'bookmark';
+            return item;
+        }
+    }
 
-    // async getChildren(element?: BookmarkItem): Promise<BookmarkItem[]> {
-    //     if (!element) {
-    //         const fileItems: BookmarkItem[] = [];
-            
-    //         for (const [fileUriString, bookmarks] of this.bookmarks) {
-    //             if (bookmarks.length > 0) {
-    //                 const fileUri = vscode.Uri.parse(fileUriString);
-    //                 const fileName = fileUri.path.split('/').pop() || fileUriString;
-                    
-    //                 fileItems.push({
-    //                     type: 'file',
-    //                     label: fileName,
-    //                     fileUri: fileUri,
-    //                     bookmarks: bookmarks
-    //                 });
-    //             }
-    //         }
-            
-    //         return fileItems;
-    //     } else if (element.type === 'file') {
-    //         const bookmarkItems: BookmarkItem[] = [];
-            
-    //         for (const bookmark of element.bookmarks || []) {
-    //             const label = bookmark.label 
-    //                 ? `Line ${bookmark.line + 1}: ${bookmark.label}`
-    //                 : `Line ${bookmark.line + 1}`;
-                
-    //             bookmarkItems.push({
-    //                 type: 'bookmark',
-    //                 label: label,
-    //                 fileUri: element.fileUri,
-    //                 line: bookmark.line
-    //             });
-    //         }
-            
-    //         return bookmarkItems;
-    //     }
-        
-    //     return [];
-    // }
+    async getChildren(element){
+        if (!element) {
+            const fileItems = [];
+            for (const [fileUriString, bookmarks] of this.bookmarks) {
+                if (bookmarks.length > 0) {
+                    const fileUri = vscode.Uri.parse(fileUriString);
+                    const fileName = fileUri.path.split('/').pop() || fileUriString;
+                    fileItems.push({
+                        type: 'file',
+                        label: fileName,
+                        fileUri: fileUri,
+                        bookmarks: bookmarks
+                    });
+                }
+            }
+            return fileItems;
+        } else if (element.type === 'file') {
+            const bookmarkItems = [];
+            for (const bookmark of element.bookmarks || []) {
+                const label = bookmark.label 
+                    ? `Line ${bookmark.line + 1}: ${bookmark.label}`
+                    : `Line ${bookmark.line + 1}`;
+                bookmarkItems.push({
+                    type: 'bookmark',
+                    label: label,
+                    fileUri: element.fileUri,
+                    line: bookmark.line
+                });
+            }
+            return bookmarkItems;
+        }
+        return [];
+    }
 }
 
 // This method is called when your extension is deactivated
